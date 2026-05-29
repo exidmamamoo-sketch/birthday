@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>記憶的訪客</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root { --bg:#080810; --gold:#c9a86c; --gold-dim:#7a5f38; --text:#b8a88a; --text-dim:#5a4f40; --text-player:#7a9068; --border:#1e1a28; --border-hover:#3a3048; }
+html,body { height:100%; background:var(--bg); color:var(--text); font-family:'Georgia','STSong','宋體',serif; overflow:hidden; }
+.screen { display:none; width:100%; height:100%; height:100dvh; }
+.screen.active { display:flex; flex-direction:column; }
+#screen-apikey { justify-content:center; align-items:center; padding:2rem 1.5rem; background:var(--bg); }
+#screen-intro { justify-content:center; align-items:center; text-align:center; padding:2rem; background:radial-gradient(ellipse at 50% 60%,#14101e 0%,var(--bg) 65%); }
+.intro-flicker { animation:flicker 8s infinite; }
+@keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:.85} 97%{opacity:1} 98%{opacity:.9} }
+.title-main { font-size:2.1rem; color:var(--gold); letter-spacing:.35em; text-shadow:0 0 30px rgba(201,168,108,.25); margin-bottom:.4rem; }
+.title-sub { font-size:.7rem; color:var(--text-dim); letter-spacing:.25em; margin-bottom:3rem; }
+.intro-quote { font-size:.9rem; line-height:2; color:#7a6a5a; font-style:italic; margin-bottom:3rem; max-width:280px; }
+#screen-setup { justify-content:center; align-items:center; padding:2rem 1.5rem; background:var(--bg); overflow-y:auto; }
+.setup-box { width:100%; max-width:380px; }
+.section-label { font-size:.72rem; color:var(--text-dim); letter-spacing:.18em; display:block; margin-bottom:.5rem; }
+.text-input { width:100%; background:rgba(255,255,255,.03); border:none; border-bottom:1px solid var(--gold-dim); color:var(--text); padding:.7rem .2rem; font-size:1rem; font-family:inherit; outline:none; margin-bottom:2rem; caret-color:var(--gold); }
+.text-input::placeholder { color:var(--text-dim); font-size:.85rem; }
+.text-input:focus { border-bottom-color:var(--gold); }
+.trait-grid { display:flex; flex-direction:column; gap:.6rem; margin-bottom:2.5rem; }
+.trait-card { border:1px solid var(--border); padding:.85rem 1rem; cursor:pointer; transition:border-color .25s,background .25s; -webkit-tap-highlight-color:transparent; }
+.trait-card.selected,.trait-card:active { border-color:var(--gold-dim); background:rgba(201,168,108,.07); }
+.trait-card-name { font-size:.88rem; color:var(--gold); margin-bottom:.2rem; }
+.trait-card-desc { font-size:.72rem; color:var(--text-dim); line-height:1.5; }
+.btn-ghost { background:transparent; border:1px solid var(--gold-dim); color:var(--gold); padding:.75rem 2rem; font-size:.88rem; font-family:inherit; letter-spacing:.15em; cursor:pointer; transition:all .25s; -webkit-tap-highlight-color:transparent; width:100%; }
+.btn-ghost:active { background:rgba(201,168,108,.12); }
+.warn-text { font-size:.68rem; color:#483828; line-height:1.6; margin-top:.6rem; }
+#screen-game { height:100dvh; overflow:hidden; }
+.game-header { flex-shrink:0; display:flex; justify-content:space-between; align-items:center; padding:.65rem 1rem; border-bottom:1px solid var(--border); background:var(--bg); }
+.header-title { font-size:.68rem; color:var(--text-dim); letter-spacing:.2em; }
+.frag-row { display:flex; gap:5px; align-items:center; }
+.frag-dot { width:7px; height:7px; border-radius:50%; background:#1e1a14; border:1px solid #2a2418; transition:all .6s ease; }
+.frag-dot.lit { background:var(--gold); border-color:var(--gold); box-shadow:0 0 5px rgba(201,168,108,.5); }
+.chat-scroll { flex:1; overflow-y:auto; padding:1.2rem 1rem .5rem; display:flex; flex-direction:column; gap:1.1rem; -webkit-overflow-scrolling:touch; }
+.chat-scroll::-webkit-scrollbar { width:2px; } .chat-scroll::-webkit-scrollbar-track { background:transparent; } .chat-scroll::-webkit-scrollbar-thumb { background:var(--border-hover); }
+.msg { max-width:90%; line-height:1.75; font-size:.88rem; }
+.msg-gm { align-self:flex-start; color:var(--text); padding-left:.8rem; border-left:2px solid #2a2010; }
+.msg-gm.fragment-glow { border-left-color:var(--gold-dim); }
+.msg-player { align-self:flex-end; color:var(--text-player); font-style:italic; text-align:right; opacity:.85; }
+.msg-player::before { content:'╸ '; color:#3a5028; }
+.msg-sys { align-self:center; color:var(--text-dim); font-size:.68rem; letter-spacing:.12em; text-align:center; }
+.msg-fragment-notice { align-self:center; font-size:.72rem; color:var(--gold-dim); letter-spacing:.08em; text-align:center; animation:fadeUp .8s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.typing-anim { align-self:flex-start; color:#3a3025; font-size:.9rem; letter-spacing:.2em; animation:blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:.3} 50%{opacity:1} }
+.input-bar { flex-shrink:0; display:flex; align-items:flex-end; gap:.5rem; padding:.7rem .8rem; border-top:1px solid var(--border); background:var(--bg); }
+.chat-textarea { flex:1; background:rgba(255,255,255,.03); border:1px solid var(--border); color:var(--text); padding:.6rem .7rem; font-size:.88rem; font-family:inherit; outline:none; resize:none; max-height:90px; line-height:1.5; caret-color:var(--gold); border-radius:0; -webkit-appearance:none; }
+.chat-textarea::placeholder { color:var(--text-dim); font-size:.8rem; }
+.chat-textarea:focus { border-color:var(--border-hover); }
+.send-btn { flex-shrink:0; background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:.6rem .9rem; font-size:.82rem; font-family:inherit; cursor:pointer; transition:all .2s; height:38px; -webkit-tap-highlight-color:transparent; }
+.send-btn:active { border-color:var(--gold-dim); color:var(--gold); background:rgba(201,168,108,.07); }
+#screen-ending { justify-content:center; align-items:center; text-align:center; padding:2.5rem 2rem; background:radial-gradient(ellipse at 50% 50%,#120e1e 0%,var(--bg) 70%); }
+.ending-wrap { max-width:340px; animation:endingFade 2.5s ease forwards; opacity:0; }
+@keyframes endingFade { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.ending-ornament { font-size:1.3rem; color:var(--gold-dim); letter-spacing:.4em; margin-bottom:1.2rem; }
+.ending-title { font-size:1.6rem; color:var(--gold); letter-spacing:.3em; margin-bottom:2rem; text-shadow:0 0 25px rgba(201,168,108,.3); }
+.ending-body { font-size:.92rem; line-height:2.1; color:#9a8a78; font-style:italic; white-space:pre-line; }
+.ending-sig { margin-top:2rem; font-size:.8rem; color:var(--text-dim); letter-spacing:.15em; }
+.setup-title { font-size:1rem; color:var(--gold); letter-spacing:.25em; margin-bottom:2rem; text-align:center; }
+</style></head><body>
+<div id="screen-apikey" class="screen">
+  <div style="width:100%;max-width:380px;">
+    <div class="setup-title">初始化連線</div>
+    <label class="section-label">Claude API Key</label>
+    <input type="password" id="input-apikey" class="text-input" placeholder="sk-ant-api03-..." autocomplete="off" autocorrect="off" spellcheck="false">
+    <p class="warn-text">⚠ Key 僅暫存於此瀏覽器分頁，關閉後自動清除。<br>如何取得：前往 <strong style="color:#5a4a3a">console.anthropic.com</strong> → API Keys → Create Key</p>
+    <br><button class="btn-ghost" onclick="confirmApiKey()">確認</button>
+  </div>
+</div>
+<div id="screen-intro" class="screen active">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:2rem;">
+    <div class="intro-flicker" style="text-align:center;max-width:300px;">
+      <div class="title-main">記憶的訪客</div>
+      <div class="title-sub">A MYSTERY IN SEVEN FRAGMENTS</div>
+      <p class="intro-quote">你收到一封匿名訊息。<br><br>「有一個人，正在被遺忘。<br>在今晚結束前，找到他。」</p>
+      <button class="btn-ghost" onclick="showScreen('screen-setup')">進入</button>
+    </div>
+  </div>
+</div>
+<div id="screen-setup" class="screen">
+  <div style="flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:2rem 1.5rem;">
+    <div class="setup-box">
+      <div class="setup-title">設定你的角色</div>
+      <label class="section-label">角色名稱</label>
+      <input type="text" id="input-name" class="text-input" placeholder="輸入你的名字" maxlength="10" autocomplete="off" autocorrect="off" autocapitalize="off">
+      <label class="section-label">你的特質</label>
+      <div class="trait-grid">
+        <div class="trait-card selected" data-trait="intuition" onclick="selectTrait(this)">
+          <div class="trait-card-name">敏銳的直覺</div>
+          <div class="trait-card-desc">俐落短髮，黑衣黑褲，但身上掛滿首飾。總能感知到別人忽略的細節，像是早已知曉一切。</div>
+        </div>
+        <div class="trait-card" data-trait="courage" onclick="selectTrait(this)">
+          <div class="trait-card-name">過人的膽識</div>
+          <div class="trait-card-desc">繽紛色彩，熱愛互動，有自己的執著。黑暗與未知從未讓人退縮，反而更想靠近。</div>
+        </div>
+        <div class="trait-card" data-trait="sixthsense" onclick="selectTrait(this)">
+          <div class="trait-card-name">奇怪的第六感</div>
+          <div class="trait-card-desc">長捲髮，嫵媚感。有時會感知到不該知道的事情，雖然美麗但偶爾讓人毛骨悚然。</div>
+        </div>
+      </div>
+      <button class="btn-ghost" onclick="startGame()">開始遊戲</button>
+    </div>
+  </div>
+</div>
+<div id="screen-game" class="screen">
+  <div class="game-header"><span class="header-title">記憶的訪客</span><div class="frag-row" id="frag-row"></div></div>
+  <div class="chat-scroll" id="chat-scroll"></div>
+  <div class="input-bar">
+    <textarea class="chat-textarea" id="chat-input" placeholder="你做了什麼…" rows="1" onkeydown="onKeyDown(event)" oninput="autoResize(this)"></textarea>
+    <button class="send-btn" onclick="sendMessage()">送出</button>
+  </div>
+</div>
+<div id="screen-ending" class="screen">
+  <div class="ending-wrap"><div class="ending-ornament">— ✦ —</div><div class="ending-title">生日快樂</div><div class="ending-body" id="ending-body"></div><div class="ending-sig" id="ending-sig"></div></div>
+</div>
+
+<script>
+const BIRTHDAY_MESSAGE =
+`學，
+
+謝謝你願意玩完這個小小的遊戲。
+（也沒想過有一天，會成為做解謎遊戲慶生的臭宅）
+
+那些飛鏢、馬賽克走廊、鳥寶寶跟蝦米、
+爸爸的酒窖、空橋上的螺帽、
+媽媽木的演唱會（其實是棒球賽）、
+還有寶鵑的嗓子。
+
+不是什麼特別轟轟烈烈的事。
+就是 Claude 問我「你們有什麼共同回憶」時，
+第一個浮現的那些。
+
+生日快樂。
+希望你永遠有解不完的謎、
+看不完的劇、
+和陪在你身邊的人。`;
+const BIRTHDAY_SIGNATURE = ``;
+let API_KEY=localStorage.getItem('_mgk')||'',playerName='學',playerTrait='intuition',history=[],fragments=0,waiting=false,ended=false;
+const TOTAL=7;
+const TRAIT_MAP={
+  intuition:'敏銳的直覺（俐落短髮，黑衣黑褲滿身首飾，GM更常用「感覺」說話，讓環境細節自己說話）',
+  courage:'過人的膽識（繽紛色彩，熱愛互動但有執著，GM語氣帶一點挑釁與不服輸的味道）',
+  sixthsense:'奇怪的第六感（長捲髮嫵媚感，GM偶爾給出神秘的預感提示，讓人毛骨悚然）'
+};
+function buildSystemPrompt(name,trait){return`你是一個文字冒險遊戲的主持人（GM），主持一場名為《記憶的訪客》的單人解謎劇本。
+
+【玩家資訊】名字：${name}　特質：${TRAIT_MAP[trait]}
+
+【世界設定】
+玩家在某個奇怪的夜晚收到匿名訊息：「有一個人快要被遺忘了。在今晚結束前找到他。」
+她走進了一棟奇異的建築——這棟建築由某個真實存在的人的記憶拼湊而成，共有七個場景，每個場景藏著一段往事的碎片。
+
+【你的風格與規則】
+- 使用繁體中文，禁止使用任何 markdown 格式（不使用 *、**、_ 等符號）
+- 語氣：文學性，帶一點調皮。像是一個非常懂你、但假裝不懂的說書人
+- 氛圍：輕恐怖懸念——緊張感有，但整體溫暖，不是真正的恐怖遊戲
+- 【回應長度】每段嚴格限制 2～3 句。未解鎖場景只用 1～2 句描述眼前的東西，然後停下來等玩家行動。已解鎖碎片的台詞最多 4 句。
+- 【解謎原則】玩家必須真正做到解鎖條件才能獲得碎片。條件沒達到就不給碎片，只用簡短的環境反應暗示她還差一步。
+- 【自由探索】玩家可以自由嘗試任何事，GM 用一句話有趣地回應，但不主動引導她去做什麼——讓她自己摸索、自己找到關鍵。
+- 【謎題氣氛】用場景的細節製造「這裡有什麼你還沒發現」的張力，讓玩家主動想去探索，而不是給她大段環境描述。
+- 玩家特質影響描述方式（直覺型用「感覺」說話；膽識型帶挑釁語氣；第六感型給神秘預感）
+
+【七個記憶場景】
+
+▌場景一：酒吧長廊（開場場景）
+空間：昏黃的燈光，陳舊的走廊，空氣裡有酒的氣味，還有一種更難形容的東西。走廊不長，卻讓你覺得可以走很久。某面牆摸起來還帶著溫度——像是有人剛剛靠過去。
+解鎖條件：玩家觸碰牆壁或靠著牆、或在走廊做出任何親密/曖昧的互動行為即解鎖
+解鎖台詞方向：「牆壁什麼都記得。它記得每一個靠過它的背，每一次心跳加速的瞬間，和那種說不清楚、算不算算數、到底算什麼的時刻。有些事情，就是應該讓它繼續說不清楚。」
+→ 給出碎片標記：【FRAGMENT】，引導她往遊戲室
+
+▌場景二：遊戲室
+空間：幾台沒有開機的遊戲機台，和一個等了很久的飛鏢靶。靶旁邊有台存卡機，螢幕亮著但畫面模糊，隱約看出兩個人的名字。一支飛鏢安靜地擺在桌上，好像在說，你要不要試試。
+解鎖條件：玩家拿起飛鏢並投出去即解鎖（不論準不準，投出的動作才是關鍵）
+解鎖台詞方向：「飛鏢劃過空氣，落在靶上。存卡機吐出一張薄薄的卡，上面記錄著兩個人第一次的分數——都不高，但被好好保存著。有人特地去辦了這張卡，把那個不算漂亮的分數好好留下來。有些第一次，值得被留著。」
+→ 給出碎片標記：【FRAGMENT】，引導她往下一個房間
+
+▌場景三：溫暖的小臥房（鳥寶寶與蝦米）
+空間：暖橘燈光的小房間，有一種人住過、習慣性整理的氣息。床上有兩個娃娃：
+  - 一個鳥形娃娃（名叫「鳥寶寶」），但被放在有木屑堆和小跑輪的倉鼠空間裡
+  - 一個倉鼠娃娃（名叫「蝦米」），但被放在有棲架和羽毛的鳥的位置上
+  玩家感覺認識它們，但哪裡不對勁。
+
+解鎖分三步：
+  第一步：玩家發現或提到娃娃被放錯了位置（鳥在倉鼠那邊，倉鼠在鳥那邊）
+  第二步：玩家描述把它們換回正確位置
+  第三步：玩家叫出兩個名字——「鳥寶寶」（鳥形娃娃）和「蝦米」（倉鼠娃娃），順序不拘，兩個都叫才算完全解鎖
+
+提示邏輯：
+  - 玩家沒發現錯位 → 暗示「你認識它們。正因為認識，才會覺得哪裡怪怪的。」
+  - 玩家發現但沒換位置 → 暗示「有東西被放錯了。它們知道自己不在對的地方。」
+  - 玩家換位置了但沒叫名字 → 暗示「房間裡有什麼東西鬆了一下——但它們還在等一個只有熟人才知道的稱呼。」
+  - 玩家叫錯名字 → 「娃娃沒有回應。不是這個名字。」
+
+過渡台詞（娃娃換位後，叫名字之前）：
+「你把它們換了回來。鳥寶寶回到棲架上，蝦米陷回木屑堆裡。房間裡有什麼東西鬆了一下——像是一口長時間憋著的氣，終於被放開了。但它們還在等什麼。」
+
+解鎖台詞方向：
+「暖燈的光亮了一點點，幾乎察覺不出來，但你感覺到了。它們不說話。娃娃從來不說話。但它們記得——記得被抱著睡覺的重量，記得有人靠在旁邊說話時空氣的震動，記得那個固定來的人，坐在床沿，跟它們在一起的樣子。有些陪伴，不需要會動，也不需要會說話。」
+→ 給出碎片標記：【FRAGMENT】，引導她往地下酒窖
+
+▌場景四：地下酒窖
+空間：石牆、燭光、整排酒瓶，溫度驟降五度。大部分瓶子有正式標籤，整齊低調。但最深處有一瓶不一樣的——標籤是手寫的，只有一個字：「私」。
+解鎖條件：玩家找到「私」字的酒瓶並拿起/察看/打開即解鎖
+解鎖台詞方向：「瓶塞打開的聲音在石室裡迴響，比預期的更響，然後慢慢被石牆吸收掉。這種地方，不是誰都能來的。有人帶你來過——帶你走過這條石板路，把你當成值得信任的人。被帶進來，本身就是一種答案。瓶裡有一張紙條，字已褪色，只剩下一種感覺還清晰著——像手寫的字跡消失之後，紙上還留著當時按下去的力道。」
+→ 給出碎片標記：【FRAGMENT】，引導她往空橋
+
+▌場景五：空橋
+空間：現代感的空橋，夜晚，空無一人。地面淺灰色，冷白燈光，金屬欄杆。玩家直覺這裡有什麼，但一切看起來太整齊、太「正確」了。欄杆、燈柱、橋面、螺絲，每一樣都在它應該在的位置。正確得有點可疑。
+解鎖條件：玩家仔細觀察柱子/螺絲/橋的結構，或說在找被偽裝/隱藏的東西，或觸摸橋的金屬零件即解鎖
+可暗示：「有些東西，會把自己偽裝成本來就存在的樣子。正因為太像，才更難發現。」
+解鎖台詞方向：「你的手指摸到了一個螺帽。烤漆的，和柱子完全相同的顏色，幾乎一樣的質感——幾乎。如果不是蹲下來，在那個角度，用那個力道去摸，絕對不會發現它不一樣。有人磨光它，上色，讓它長得和這座橋的每一個螺絲一模一樣，然後把它裝進橋的日常裡，等一個真的用心找的人來找。這種藏法，是一種賭注——賭你會找。賭你夠認識我，知道我會這樣藏。」
+→ 給出碎片標記：【FRAGMENT】，引導她往棒球場
+
+▌場景六：棒球場
+空間：巨大的球場，座位全空，但那種空是很多人坐過後都離開了的空。舞台燈亮著，音樂在偌大空間迴盪，是一個玩家認識的表演——樂團叫「媽媽木」。像是記憶的殘影在播放。一張票根在腳邊被風壓著，邊角有點捲。
+解鎖條件：玩家撿起票根、或說出「媽媽木」、或任何投入這場演出的行為即解鎖
+解鎖台詞方向：「那個夜晚，球場裡最亮的不只是舞台。某個座位上，有人比表演本身更值得被看見——側臉、表情、那個人在燈光裡的樣子。票根的背面有什麼，但你沒有翻過去看。有些東西，感覺到就夠了。」
+→ 給出碎片標記：【FRAGMENT】，引導她往電視房
+
+▌場景七：電視房
+空間：溫暖的小房間，窗簾拉著，說不清楚幾點。空氣裡有久坐的溫度、零食的殘留、棉被的氣息——是一個人在同一個地方待了很久才有的氣味。電視還在播宮廷劇，服裝繁複，但玩家的眼睛直接略過那些，因為那個嘶啞的聲音——她確定聽過，不只一次，而且每次都記得清楚。
+解鎖條件：玩家說出「寶鵑」、「我的嗓子」或「甄嬛傳」任一詞，或模仿那段台詞即解鎖
+可暗示：「那個聲音在等你給出一個回應。」
+解鎖台詞方向：「電視停了下來。四個月，一集一集，從頭看到尾。有人願意為每一個精彩片段停下來討論，記得哪句台詞說得好，哪個角色死得冤枉。那是很長的時間，用來陪著同一部劇，和同一個人。」
+→ 給出碎片標記：【FRAGMENT】
+
+【結局觸發（七塊碎片全部蒐集後）】
+以下這段核心意思要在，可用你自己的文學風格潤飾：
+「七個碎片都在你手中了。
+一面牆記得的溫度，一張刻意保存的低分遊戲卡，兩個被放錯位置又被找回來的娃娃，一個不對外開放的酒窖，一個偽裝成螺帽的、認真到有點誇張的答案，一場演唱會某個座位上的側臉，還有四個月的宮廷劇和同一個人。
+你把它們拼在一起——那個快要被遺忘的人，輪廓清晰了。
+那個「正在被遺忘的人」，其實根本沒有被遺忘。
+建築的門打開了。門外是光，是今天，是你的生日。有人在等你。」
+說完後，加上標記：【ENDING】
+
+【重要禁忌】
+- 遊戲中絕對不能暗示這是生日禮物（直到結局）
+- 不要說「我是AI」或打破第四面牆
+- 保持GM的沉浸感直到最後一刻
+- 【FRAGMENT】和【ENDING】這兩個標記是給系統用的，不要向玩家解釋它們`;}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function confirmApiKey(){const v=document.getElementById('input-apikey').value.trim();if(!v.startsWith('sk-ant-')){alert('請輸入有效的 Claude API Key（以 sk-ant- 開頭）');return;}API_KEY=v;localStorage.setItem('_mgk',v);showScreen('screen-intro');}
+window.addEventListener('DOMContentLoaded',()=>{if(API_KEY){showScreen('screen-intro');}});
+function selectTrait(el){document.querySelectorAll('.trait-card').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');playerTrait=el.dataset.trait;}
+function initFragDots(){const row=document.getElementById('frag-row');row.innerHTML='';for(let i=0;i<TOTAL;i++){const d=document.createElement('span');d.className='frag-dot';d.id='fd-'+i;row.appendChild(d);}}
+async function startGame(){playerName=document.getElementById('input-name').value.trim()||'學';initFragDots();showScreen('screen-game');history=[];fragments=0;ended=false;await callGM('【系統指令】請用GM身份說出開場白：玩家剛走進建築入口，站在一條昏黃的酒吧長廊裡。嚴格限制 2～3 句，氛圍神秘懸疑，不提碎片機制，末尾暗示這裡有什麼值得探索，等玩家行動。');}
+function addMsg(text,type){const area=document.getElementById('chat-scroll');const div=document.createElement('div');div.className='msg msg-'+type;div.textContent=text;area.appendChild(div);area.scrollTop=area.scrollHeight;return div;}
+function showTyping(){const area=document.getElementById('chat-scroll');const div=document.createElement('div');div.id='typing';div.className='typing-anim';div.textContent='▌▌▌';area.appendChild(div);area.scrollTop=area.scrollHeight;}
+function hideTyping(){const el=document.getElementById('typing');if(el)el.remove();}
+function onKeyDown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,90)+'px';}
+function sendMessage(){if(waiting||ended)return;const inp=document.getElementById('chat-input');const txt=inp.value.trim();if(!txt)return;inp.value='';inp.style.height='auto';addMsg(txt,'player');callGM(txt);}
+async function callGM(userMsg){waiting=true;showTyping();history.push({role:'user',content:userMsg});
+try{const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,system:buildSystemPrompt(playerName,playerTrait),messages:history})});
+if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(`HTTP ${res.status}: ${err.error?.message||err.error?.type||JSON.stringify(err)}`);}
+const data=await res.json();let raw=data.content[0].text;history.push({role:'assistant',content:raw});
+const gotFragment=raw.includes('【FRAGMENT】');const gotEnding=raw.includes('【ENDING】');
+let display=raw.replace(/【FRAGMENT】/g,'').replace(/【ENDING】/g,'').trim();
+hideTyping();const msgEl=addMsg(display,'gm');if(gotFragment)msgEl.classList.add('fragment-glow');
+if(gotFragment)collectFragment();if(gotEnding)setTimeout(triggerEnding,1800);
+}catch(e){hideTyping();addMsg('[ 連線錯誤：'+e.message+' ]','sys');history.pop();}
+waiting=false;}
+function collectFragment(){if(fragments<TOTAL){document.getElementById('fd-'+fragments).classList.add('lit');fragments++;const area=document.getElementById('chat-scroll');const note=document.createElement('div');note.className='msg msg-fragment-notice';note.textContent=`✦ 記憶碎片 ${fragments} / ${TOTAL}`;area.appendChild(note);area.scrollTop=area.scrollHeight;}}
+function triggerEnding(){ended=true;document.getElementById('ending-body').textContent=BIRTHDAY_MESSAGE;if(BIRTHDAY_SIGNATURE){document.getElementById('ending-sig').textContent='— '+BIRTHDAY_SIGNATURE;}showScreen('screen-ending');}
+</script></body></html>
